@@ -1,4 +1,4 @@
-# RFC: Data Loading Enhancements (for loaders.gl)
+# RFC: Data Loading Enhancements (Improve deck.gl / loaders.gl integration)
 
 * **Author**: Ib Green
 * **Date**: May 2019
@@ -12,9 +12,26 @@ This RFC suggests a number of improvements to loading support in deck.gl, in par
 
 The vision of loaders.gl is that loaders are designed to be directly compatible with luma.gl and deck.gl and easy/intuitive to use is not fully realized in deck.gl v7.0.
 
+We want to maximize the out-of-the-box convenience of the deck.gl/loaders.gl integration (i.e. data just loads and parses as expected with almost zero configuration) while providing fine-grained control over loading and options. Ideally a subset of the fine-grained control can be specified declaratively such that it works in the JSON and Python integration.
 
-### Problems
 
+## Problems
+
+- Adding/replacing loaders
+     - for all layers / the entire app
+     - for all props in a specific layer
+     - for a specific prop (url) in a layer
+- Specifying options for a specific loader
+     - for all layers / the entire app
+     - for all props in a specific layer
+     - for a specific prop (url) in a layer
+- Specifying options for `fetch`
+    - for all props (urls)
+    - just a specific prop (url)
+
+ - Ability to call loaders outside of deck.gl (i.e. not implicitly as the result of passing in a URL prop) and pass in the result to the layer as data (ScenegraphLayer issue).
+
+- Overriding the
 * No separation between loading and parsing - The application should not need reimplement parsing just to add a header to the `fetch` call.
 
 - The main method for redefining loading.
@@ -22,98 +39,89 @@ There are some ways around this, like using fake urls and checking for them in t
 
 No good way to specify different loaders for different props.
 
-## Proposal 1a: Separate fetching from parsing (fetch returns String/ArrayBuffer or Response)
+### Proposal 1a: Async loading uses `load`
 
-The ability for app to redefine how data is loaded (or "fetched") is important.
+Doing so lets us move almost all loading override logic and option handling to loaders.gl, and keeps deck.gl loading implementation minimal and clean.
 
-Apps need to be able to do things like
-- add request headers
-- set CORS flags
-- etc
+```js
+const defaultProps = {
+  fetch: {
+    type: 'function',
+    value: (url, {layer}) => load(url, layer.getLoadOptions()),
+  }
+};
+```
 
-There are many different techniques and libraries (`XMLHttpRequest`, company-internal libraries etc) that help users load data into the browser, we want to enable users to use the techniques that work for them.
+### Proposal 1c: Deprecate `props.fetch`
 
-It is desirable to be able to separate override fetching and loading, to support:
-1. ability to override fetch with custom fetching logic (see more examples below),
-2. integration with loaders.gl and
+The current v7.1 `fetch` prop semantics are not consistent with `fetch` semantic and loaders.gl conventions.
 
-To achieve this, we redefine (extend) the semantics of the current `fetch` prop:
+In particular `props.fetch` is expected to both fetch and parse. If proposal 1c is implemented, we can deprecate the current `fetch` prop.
 
-- if `props.fetch` returns a `String` `ArrayBuffer` or `Response` (or a promise resolving to these), we apply parsing to the result.
-- if `props.fetch` returns e.g. an Array or Object deck.gl can assume that fetch did perform parsing and skip a
+If we still need this capability (e.g. because we think that defining a custom loader object is too complicated), we should probably call it `props.load` instead.
 
-Note that the `fetch` prop remains backwards compatible by only considering `fetch` separated from parsing if it returns structured data.
 
-Simple example that uses `fetch` with options
+### Proposal 1d: Separate fetching from parsing (fetch returns String/ArrayBuffer or Response)
+
+> This proposal has been moved to a separate RFC in loaders.gl.
+
+To enable `fetch` to be redefined by application (when using async props), the proposal is to add a `fetch` option to loaders.gl `load`,
+
+Simple examples that use loader.gl `load` option to call `fetch` with options
 
 ```js
   SomeLayer({
     data: INTERNAL_DATA_URL,
-    fetch: url => fetch(url, {headers: {'Company-Access-Token': 'Secret-Value'}})
+    load: {
+      fetch: {headers: {'Company-Access-Token': 'Secret-Value'}}
+      // or
+      fetch: url => fetch(url, {headers: {'Company-Access-Token': 'Secret-Value'}})
+    }
   })
 ```
 
-Default fetch:
-- The default fetch would change to just call `fetch`...
-
 Design Notes:
-- Backwards compatibility:  The main complication with redefining `fetch` was the current (7.1) `fetch` prop semantics (which are seeing modest use in our own code). Per the current semantics, a `props.fetch` override is expected to both fetch and parse.
+- A problem is that some loaders (mainly image loaders) do not support a separate call to fetch, but instead load and parse in a single operation. Cross origin type options must be specified in some other way. This is discussed in the loaders.gl RFC
 
-## Proposal 1b: fetch overload - specify an options object for fetch (DECLARATIVE)
+### Proposal 2a: Specify loader options for a layer
 
-We could support a fetch overload that just takes an object with parameters to `fetch` (which would presumably be the most common use case for overriding fetch):
-
-```js
-  SomeLayer({
-    data: INTERNAL_DATA_URL,
-    fetch: {headers: {'Company-Access-Token': 'Secret-Value'}}
-  })
-```
-
-Design notes:
-- This overload would support declarative usage (json/pydeck/...).
-
-
-## Proposal: Add `parse` prop to specify how data should be parsed
-
-```js
-import {parse, registerLoaders} from '@loaders.gl/core';
-import {CSVLoader} from '@loaders.gl/csv';
-registerLoaders(CSVLoader);
-
-new AnyLayer({
-  coordinateSystem: COORDINATE_SYSTEM.IDENTITY,
-  data: CSV_URL,
-  // NEW: Accept a parse methods
-  parse,
-});
-```
-
-There are two ways to specify a custom loader that works with the deck.gl async prop loading:
-
-- Defining a fetch function that loads and parses.
-
-Do we expect `parse` functions to support different input data.
-
-
-The `parse` prop is expected to be either a function or a (list of) loaders.gl loaders that can be passed to `parse`.
-
-Design Notes:
-- The requirement to wrap custom loaders as loaders.gl loader objects: loaders.gl `parse` is flexible and accepts a fetch response object as its preferred (most  flexiable/efficient input). It is fair to assume that not all custom loaders support a variety of objects. By registering a custom loaders
-
-
-
-## Proposal 3a: Ability to override fetch per async prop
-
-By supplying an object to fetch, different request options could be needed for different props (different resources may be served from different servers and they may need different headers etc):
+The proposed strategy is to invest in refining option handling in loaders.gl and focus on having a simple and clean mechanisms in deck.gl to forward loader props to loaders.gl `load` call.
 
 ```js
   SomeBitmapLayer({
     data: DATA_URL,
     bitmap: BITMAP_URL,
-    fetch: {
-      data: url => fetch(url, {headers: {...}})
-      bitmap: url => fetch(url, {headers: {...}})
+    loadOptions: {
+      fetch: {headers: {...}}
+    }
+  })
+```
+
+Design Issues:
+- Naming of the prop: `load`, `loadOptions`, `loaderOptions`, ...?
+- Do we need to be able to specify some loader options in the layer default props?
+- If so, do we need to implement a deep merge of loader prop objects? Should loaders.gl support that?
+
+
+### Proposal 2b: Ability to override fetch per async prop
+
+Problem: different resources may be served from different servers and they may need different headers etc.
+
+By supplying an `props` object to the loader objects, different `load` options could be needed for different props.
+
+```js
+  SomeBitmapLayer({
+    data: DATA_URL,
+    bitmap: BITMAP_URL,
+    loadOptions: {
+      props: {
+        data: {
+          fetch: url => companyInternalFetch(url)
+        },
+        bitmap: {
+          fetch: {headers: EXTERNAL_SERVICE_HEADERS})
+        }
+      }
     }
   })
 ```
@@ -124,8 +132,13 @@ If an async prop isn't listed it will be fetched using the default fetch method.
   SomeBitmapLayer({
     data: DATA_URL, // loaded with custom fetch
     bitmap: BITMAP_URL, // loaded with default fetch
-    fetch: {
-      data: url => fetch(url, {headers: {...}}),
+    loadOptions: {
+      fetch: {headers: {...}}
+      props: {
+        data: {
+          fetch: {headers: {...}}
+        }
+      }
     }
   })
 ```
@@ -135,40 +148,21 @@ Redefining default AND specific fetch
   SomeBitmapLayer({
     data: DATA_URL, // loaded with custom fetch
     bitmap: BITMAP_URL, // loaded with default fetch
-    fetch: {
-      data: url => fetch(url, {headers: {...}}),
+    loadOptions: {
+      fetch: {headers: {...}}
+      props: {
+        data: {
+          fetch: {headers: {...}}
+        }
+      }
     }
   })
 ```
 
-Design notes:
-- This design conflict with the declarative `fetch` overrides (proposal 1b), as both represent Object overloads.
-
-Alternative design, we could let async props be objects. But this would of course be an issue when we accept objects (like binary data).
-
-```js
-  SomeBitmapLayer({
-    data: {
-      url: DATA_URL,
-      fetch: url => fetch(url, {headers: {...}}),
-      parse: ...
-    },
-    bitmap: BITMAP_URL,
-  })
-```
-
-```js
-  SomeBitmapLayer({
-    data: DATA_URL, // loaded with custom fetch
-    bitmap: BITMAP_URL, // loaded with default fetch
-    fetch: {
-      data: url => fetch(url, {headers: {...}}),
-    }
-  })
-```
+deck.gl would look for per-prop overrides and merge and remove them before passing the options to loaders.gl
 
 
-## Proposal 3c: Ability to override parse per async prop
+### Proposal 3c: Ensure that loaders can be called outside of async props
 
 Sometimes, a loader called by the parse function needs contextual information. For instance, the ScenegraphLoader cannot work without a `gl` context being passed in.
 
@@ -177,7 +171,7 @@ Design Notes:
 - Sometimes the layer may just need to pass some options to the pre-registered loader. CSV header flag, gl context to scenegraph laoder.
 
 
-## Proposal 4: Add 'onData' callback
+### Proposal 4: Add 'onData' callback
 
 The new `onData` callback is called whenever the layer sees new `data`, either as a result of an async load completing, or just as a result of new sync data being supplied to the layer.
 
@@ -210,7 +204,7 @@ Design Notes:
 - The original proposed callback name was `onDataLoaded`. Reviewers pointed out that it would be useful to call this function should be called even when pre-parsed data is supplied. The new name (`onData`) reflects this change. Other options: `onDataAvailable`, `onDataUpdated`.
 
 
-## Proposal 5: Make PointCloudLayer accept a "Geometry-shaped" object
+### Proposal 5: Make PointCloudLayer accept a "Geometry-shaped" object
 
 Today custom code is required to extract the positions attribute etc and pass in as top-level props, see the PointCloudLayer example.
 
@@ -238,7 +232,7 @@ new PointCloudLayer({
 });
 ```
 
-## Proposal: Update deck.gl/json to use loaders.gl integration
+### Proposal: Update deck.gl/json to use loaders.gl integration
 
 Instead of importing d3-csv etc.
 
@@ -293,3 +287,59 @@ const defaultProps = {
 
 Design Notes:
 - We would need to clarify how individual fetch functions are merged between defaults and overrides.
+
+## Rejected Proposal: Add `parse` prop to specify how data should be parsed
+
+> No longer needed with extended option support in loaders.gl
+
+```js
+import {parse, registerLoaders} from '@loaders.gl/core';
+import {CSVLoader} from '@loaders.gl/csv';
+registerLoaders(CSVLoader);
+
+new AnyLayer({
+  coordinateSystem: COORDINATE_SYSTEM.IDENTITY,
+  data: CSV_URL,
+  // NEW: Accept a parse methods
+  parse,
+});
+```
+
+There are two ways to specify a custom loader that works with the deck.gl async prop loading:
+
+- Defining a fetch function that loads and parses.
+
+Do we expect `parse` functions to support different input data.
+
+
+The `parse` prop is expected to be either a function or a (list of) loaders.gl loaders that can be passed to `parse`.
+
+Design Notes:
+- The requirement to wrap custom loaders as loaders.gl loader objects: loaders.gl `parse` is flexible and accepts a fetch response object as its preferred (most  flexiable/efficient input). It is fair to assume that not all custom loaders support a variety of objects. By registering a custom loaders
+
+##@ Rejected Proposal: Async props can be object
+
+Alternative design, we could let async props be objects with all their load options.
+
+But this overload would conflict with data actually being objects (like binary data).
+
+```js
+  SomeBitmapLayer({
+    data: {
+      url: DATA_URL,
+      fetch: url => fetch(url, {headers: {...}}),
+      parse: ...
+    },
+    bitmap: BITMAP_URL,
+  })
+```
+
+```js
+  SomeBitmapLayer({
+    data: DATA_URL, // loaded with custom fetch
+    bitmap: BITMAP_URL, // loaded with default fetch
+    fetch: {
+      data: url => fetch(url, {headers: {...}}),
+    }
+  })
+```
