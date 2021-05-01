@@ -38,7 +38,8 @@ const defaultProps = {
     },
     compare: false
   },
-  maxRequests: 6
+  maxRequests: 6,
+  Tileset2D
 };
 
 export default class TileLayer extends CompositeLayer {
@@ -86,7 +87,7 @@ export default class TileLayer extends CompositeLayer {
         extent,
         maxRequests
       } = props;
-      tileset = new Tileset2D({
+      tileset = new props.Tileset2D({
         getTileData: this.getTileData.bind(this),
         maxCacheSize,
         maxCacheByteSize,
