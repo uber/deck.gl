@@ -21,11 +21,14 @@
 import test from 'tape-catch';
 import {equals, config, Vector3} from 'math.gl';
 import {WebMercatorViewport} from 'deck.gl';
+import {Matrix4} from 'math.gl';
 
 // Adjust sensitivity of math.gl's equals
 const LNGLAT_TOLERANCE = 1e-6;
 const ALT_TOLERANCE = 1e-5;
 const OFFSET_TOLERANCE = 1e-5;
+
+const DEGREES_TO_RADIANS = Math.PI / 180;
 
 /* eslint-disable */
 const TEST_VIEWPORTS = [
@@ -273,6 +276,21 @@ test('WebMercatorViewport.subViewports', t => {
 
   t.is(viewport.subViewports, subViewports, 'subViewports are cached');
 
+  t.end();
+});
+
+test('WebMercatorViewport.projectionMatrix', t => {
+  const opts = {...TEST_VIEWPORTS[0]};
+
+  const fovy = 25;
+  const projectionMatrix = new Matrix4().perspective({
+    fovy: fovy * DEGREES_TO_RADIANS,
+    aspect: opts.width / opts.height,
+    near: 0.1,
+    far: 10
+  });
+  let viewport = new WebMercatorViewport({projectionMatrix, ...opts});
+  t.deepEqual(viewport.fovy, fovy, 'fovy is passed through');
   t.end();
 });
 
