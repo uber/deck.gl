@@ -61,7 +61,7 @@ function makeLocalDevConfig(EXAMPLE_DIR = LIB_DIR, linkToLuma, linkToMath) {
       'geoid',
       'geospatial',
       'main',
-      'mercator',
+      'web-mercator',
       'polygon',
       'proj4',
       'sun',
