@@ -1,5 +1,7 @@
 /* global google, document */
 import {Deck} from '@deck.gl/core';
+import {MapView} from '@deck.gl/core';
+import {Matrix4} from 'math.gl';
 
 // https://en.wikipedia.org/wiki/Web_Mercator_projection#Formulas
 const MAX_LATITUDE = 85.05113;
@@ -29,7 +31,7 @@ export function createDeckInstance(map, overlay, deck, props) {
   deck = new Deck({
     ...props,
     style: null,
-    parent: getContainer(overlay, props.style),
+    parent: overlay && getContainer(overlay, props.style),
     initialViewState: {
       longitude: 0,
       latitude: 0,
@@ -57,7 +59,14 @@ function getContainer(overlay, style) {
   const container = document.createElement('div');
   container.style.position = 'absolute';
   Object.assign(container.style, style);
-  overlay.getPanes().overlayLayer.appendChild(container);
+  if (overlay.getPanes) {
+    overlay.getPanes().overlayLayer.appendChild(container);
+  } else {
+    overlay
+      .getMap()
+      .getDiv()
+      .appendChild(container);
+  }
   return container;
 }
 
@@ -82,12 +91,8 @@ export function destroyDeckInstance(deck) {
  * @param map (google.maps.Map) - The parent Map instance
  * @param overlay (google.maps.OverlayView) - A maps Overlay instance
  */
-export function getViewState(map, overlay) {
-  // The map fills the container div unless it's in fullscreen mode
-  // at which point the first child of the container is promoted
-  const container = map.getDiv().firstChild;
-  const width = container.offsetWidth;
-  const height = container.offsetHeight;
+export function getViewPropsFromOverlay(map, overlay) {
+  const {width, height} = getMapSize(map);
 
   // Canvas position relative to draggable map's container depends on
   // overlayView's projection, not the map's. Have to use the center of the
@@ -145,7 +150,74 @@ export function getViewState(map, overlay) {
     longitude
   };
 }
+
 /* eslint-enable max-statements */
+
+/**
+ * Get the current view state
+ * @param map (google.maps.Map) - The parent Map instance
+ * @param coordinateTransformer (google.maps.CoordinateTransformer) - A CoordinateTransformer instance
+ */
+export function getViewPropsFromCoordinateTransformer(map, coordinateTransformer) {
+  const {width, height} = getMapSize(map);
+  const {
+    lat: latitude,
+    lng: longitude,
+    heading: bearing,
+    tilt: pitch,
+    zoom
+  } = coordinateTransformer.getCameraParams();
+
+  // Match Google projection matrix
+  // The view matrix altitude is 1m, however the FOV is
+  // not calculated from this, but rather is set to 25 degrees.
+  const altitude = 1;
+  const fovy = 25;
+  const aspect = width / height;
+
+  // Match depth range (crucial for correct z-sorting)
+  const near = 0.3333333432674408;
+  const far = 300000000000000;
+
+  const projectionMatrix = new Matrix4().perspective({
+    fovy: (fovy * Math.PI) / 180,
+    aspect,
+    near,
+    far
+  });
+  const focalDistance = 0.5 * projectionMatrix[5];
+
+  return {
+    width,
+    height,
+    views: [
+      new MapView({
+        id: 'google-maps-overlay-view',
+        projectionMatrix
+      })
+    ],
+    viewState: {
+      altitude,
+      bearing,
+      latitude,
+      longitude,
+      pitch,
+      repeat: true,
+      // Adjust zoom to obtain correct scaling matrix.
+      zoom: zoom - 1 - Math.log2(focalDistance)
+    }
+  };
+}
+
+function getMapSize(map) {
+  // The map fills the container div unless it's in fullscreen mode
+  // at which point the first child of the container is promoted
+  const container = map.getDiv().firstChild;
+  return {
+    width: container.offsetWidth,
+    height: container.offsetHeight
+  };
+}
 
 function getEventPixel(event, deck) {
   if (event.pixel) {

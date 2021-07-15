@@ -8,9 +8,11 @@
     "build": "webpack -p"
   },
   "dependencies": {
-    "@deck.gl/core": "^8.1.0",
-    "@deck.gl/google-maps": "^8.1.0",
-    "@deck.gl/layers": "^8.1.0"
+    "@deck.gl/core": "^8.4.0",
+    "@deck.gl/google-maps": "^8.4.0",
+    "@deck.gl/geo-layers": "^8.4.0",
+    "@deck.gl/layers": "^8.4.0",
+    "@loaders.gl/gltf": "^3.0.0-alpha.21"
   },
   "devDependencies": {
     "webpack": "^4.20.2",
