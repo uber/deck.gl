@@ -193,15 +193,73 @@ gives us a field of view of 25 degrees.
 
 ## Coverting to deck.gl parameters
 
-Having derived all the necessary values to construct the projection matrix that Google Maps is using, we just need to convert these parameters into something that deck.gl can use when constructing a viewport.
+Having derived all the necessary values to construct the projection matrix that Google Maps is using, we can build this as shown above and then pass it to the `MapView` which will apply it to the `WebMercatorViewport`.
 
-Near and far planes are simple, as these correspond to `nearZMultiplier` and `farZMultiplier`.
+## Matching zoom factors
 
-The field of view isn't a parameter accepted by deck.gl, instead we must supply an `altitude`. It can be shown that this altitude is simply half the value of `f` that we obtained when calculating the field of view, thus we can rearrange the equation for the field of view and calculate an altitude of 2.2553542518310286 whichcorresponds to a 25 degree field of view.
+What remains is matching up the zoom factors. Because we have changed the field of view, but kept the z-position of the view matrix constant (`altitude` set to 1), the scaling of our map is wrong.
 
-Finally, we need to make sure that `t_z` is equal to -1. This is where the `scaleMultiplier` parameter comes in. When calculating `t_z` deck.gl also uses the `altitude` parameter. By default `t_z` is simply set to `altitude` (which happens to match what Mapbox does), but we need it equal 1. Thus we set the `scaleMultiplier` to `1 / altitude` to compensate.
+A good way to think about this is in terms of the focal distance of the projection matrix. This is related to the field of view by the following formula:
 
+    focalDistance = 0.5 / tan(0.5 * fovy)
 
-## TODO
+and is also easily obtained from the `projectionMatrix` as `0.5 * projectionMatrix[5]`.
 
-In future add some code snippets that we used to help to figure all this out.
+By default, deck.gl (following the convention in mapbox-gl) sets the `focalDistance` to be equal to the `altitude`. If we break from this convention, then everything on screen will appear larger by a scale factor equal to the ratio between the `focalDistnace` and `altitude`, or more simply just `focalDistance` as `altitude` is equal to `1`.
+
+Thus we need to replace `scale` with `scale / focalDistance` when constructing the view matrix. As `scale = Math.pow(2, zoom)` this means `zoom: zoom - 1` from the original viewport becomes `zoom: zoom - 1 - Math.log2(focalDistance)`.
+
+## Helper function
+
+The following function takes a VPM and extract the parameters used above from it. Note it assumes that the view matrix is composed solely of a scale and translation, and so will not work for a rotated or tilted map.
+
+```javascript
+const vpmInfo = function(m) {
+  const scaleZ = -m[11];
+  const scaleY = scaleZ;
+  const aspect = m[5] / m[0];
+  const f = m[5] / scaleY;
+  const info = {
+    focalDistance: f / 2,
+    aspect,
+    scaleZ, // assume equal to scaleX and scaleY
+    translateX: (aspect * m[12]) / f,
+    translateY: m[13] / f,
+    translateZ: -m[15]
+  };
+  if (m[10] === m[11]) {
+    // Far plane is at infinity
+    info.near = (m[15] - m[14]) / 2;
+    info.far = Infinity;
+  } else {
+    const a = -m[10] / m[11];
+    const b = m[14] - (m[10] * m[15]) / m[11];
+    info.far = b / (1 + a);
+    info.near = (info.far * (1 + a)) / (a - 1);
+  }
+
+  return info;
+}
+```
+
+Using this on the VPM above yields:
+
+```javascript
+vpmInfo([
+  0.00009478,  0,          0,            0,
+  0,           0.00008664, 0,            0,
+  0,           0,          -0.00001920, -0.00001920,
+  0.04601,     0.02680,    0.3333333134651184, 1
+])
+
+=> {
+  aspect: 0.9141169023000633
+  far: Infinity
+  focalDistance: 2.25625
+  near: 0.3333333432674408
+  scaleZ: 0.0000192
+  translateX: 0.009320447351761975
+  translateY: 0.0059390581717451525
+  translateZ: -1
+}
+```
