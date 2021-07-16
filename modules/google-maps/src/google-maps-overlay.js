@@ -161,11 +161,13 @@ export default class GoogleMapsOverlay {
         });
       });
 
-      // Attempt to restore state. Still doesn't quite work when picking
+      // Reset state otherwise get rendering errors in
+      // Google library. These occur because the picking
+      // code is run outside of the _draw() method and
+      // the GL state can be inconsistent
       setParameters(gl, {
         scissor: [0, 0, gl.canvas.width, gl.canvas.height],
-        depthMask: true,
-        depthTest: true
+        stencilFunc: [gl.ALWAYS, 0, 255, gl.ALWAYS, 0, 255]
       });
     }
   }
