@@ -88,10 +88,10 @@ export default class GoogleMapsOverlay {
       overlay.onAdd = () => {};
       overlay.onContextLost = this._onContextLost.bind(this);
       overlay.onContextRestored = this._onContextRestored.bind(this);
-      overlay.onDraw = this._onDraw.bind(this);
+      overlay.onDraw = this._onDrawVector.bind(this);
     } else {
       overlay.onAdd = this._onAdd.bind(this);
-      overlay.draw = this._draw.bind(this);
+      overlay.draw = this._onDrawRaster.bind(this);
     }
     overlay.onRemove = this._onRemove.bind(this);
 
@@ -120,8 +120,7 @@ export default class GoogleMapsOverlay {
     this._deck.setProps({layerFilter: HIDE_ALL_LAYERS});
   }
 
-  // Raster code path
-  _draw() {
+  _onDrawRaster() {
     const deck = this._deck;
     const {width, height, left, top, zoom, pitch, latitude, longitude} = getViewPropsFromOverlay(
       this._map,
@@ -146,7 +145,7 @@ export default class GoogleMapsOverlay {
   }
 
   // Vector code path
-  _onDraw(gl, coordinateTransformer) {
+  _onDrawVector(gl, coordinateTransformer) {
     const deck = this._deck;
 
     deck.setProps({
@@ -163,7 +162,7 @@ export default class GoogleMapsOverlay {
 
       // Reset state otherwise get rendering errors in
       // Google library. These occur because the picking
-      // code is run outside of the _draw() method and
+      // code is run outside of the _onDrawVector() method and
       // the GL state can be inconsistent
       setParameters(gl, {
         scissor: [0, 0, gl.canvas.width, gl.canvas.height],
