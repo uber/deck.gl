@@ -51,6 +51,7 @@ Parameters:
   + `nearZMultiplier` (Number, optional) - Scaler for the near plane, 1 unit equals to the height of the viewport. Default to `0.1`.
   + `farZMultiplier` (Number, optional) - Scaler for the far plane, 1 unit equals to the distance from the camera to the top edge of the screen. Default to `1.01`.
   + `orthographic` (Boolean, optional) - Default `false`.
+  + `projectionMatrix` (Array, optional) - Optional 16-element 4x4 projection matrix, that overrides the matrix created from the parameters above.
 
 Remarks:
 
@@ -58,6 +59,7 @@ Remarks:
 * `width` and `height` are forced to 1 if supplied as 0, to avoid division by zero. This is intended to reduce the burden of apps to check values before instantiating a `Viewport`.
 *  When using Mercator projection, per cartographic tradition, longitudes and latitudes are specified as degrees.
 * `latitude` of `90` or `-90` are projected to infinity in [Web Mercator projection](https://en.wikipedia.org/wiki/Web_Mercator_projection). Using pole locations with this viewport may result in `NaN`s. Many base map providers cut off at `85.051129` at which the full world becomes a square.
+* When constructing the viewport, a field of view is not specified, but rather is calculated from the `altitude` or (if present) the `projectionMatrix`. The value can be obtained from `this.fovy` (in radians).
 
 Inherits all [Viewport methods](/docs/api-reference/core/viewport.md#methods).
 
