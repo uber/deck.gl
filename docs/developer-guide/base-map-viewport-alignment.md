@@ -65,14 +65,31 @@ The problem essentially boils down to constructing the deck.gl [projection matri
 
 This can be done by adding the following configuration to the viewport:
 
-    const altitude = 2.2553542518310286;
-    const scaleMultiplier = 1 / altitude; // Note: unsupported parameter, subject to change
-    const nearZMultiplier = 0.3333333432674408;
-    const farZMultiplier = 300000000000000; // Note: should be Infinity (need fix in deck.gl, so approximate for now)
+    const projectionMatrix = new Matrix4().perspective({
+      fovy: (25 * Math.PI) / 180, // 25 degrees
+      aspect: width / height;
+      near: 0.3333333432674408,
+      far: 300000000000000
+    });
+    const focalDistance = 0.5 * projectionMatrix[5];
+
     deck.setProps({
+      width, height,
+      views: [
+        new MapView({
+          id: 'google-maps-overlay-view',
+          projectionMatrix
+        })
+      ],
       viewState: {
-        ... 
-        altitude, farZMultiplier, nearZMultiplier, scaleMultiplier
+        altitude,
+        bearing,
+        latitude,
+        longitude,
+        pitch,
+        repeat: true,
+        // Adjust zoom to obtain correct scaling matrix.
+        zoom: zoom - 1 - Math.log2(focalDistance)
       }
 
 With this, our z-buffers are aligned and objects appear as if they were drawn in the same scene, even though they are being rendered by two independent libraries.
