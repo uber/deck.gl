@@ -48,12 +48,14 @@ To use deck.gl in a scripting environment, include the standalone version in a `
 
 ```html
 <script src="https://unpkg.com/deck.gl@latest/dist.min.js"></script>
+<!-- optional if WebGL constants are needed -->
+<script src="https://unpkg.com/@luma.gl/constants@latest/dist/dist.min.js"></script>
 <!-- optional if mapbox base map is needed -->
 <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.53.0/mapbox-gl.js'></script>
 <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.53.0/mapbox-gl.css' rel='stylesheet' />
 ```
 
-It exposes two global objects `deck` and `luma`. Any exports from the deck.gl core can be accessed by `deck.<Class>`.
+It exposes two global objects `deck` and `luma`. Any exports from the deck.gl core can be accessed by `deck.<Class>`. WebGL constants can be accessed by `luma.GL.<constant>`.
 
 The scripting API's [DeckGL](/docs/api-reference/core/deckgl.md) class extends the core `Deck` class with some additional features such as Mapbox integration.
 
