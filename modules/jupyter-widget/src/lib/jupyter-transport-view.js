@@ -12,7 +12,11 @@ export default class JupyterTransportView extends DOMWidgetView {
     // Expose Jupyter internals to enable work-arounds
     this.transport.jupyterModel = this.model;
     this.transport.jupyterView = this;
-    this.transport._initialize();
+
+    const jsonInput = this.model.get('json_input');
+    const json = jsonInput ? JSON.parse(jsonInput) : {};
+    this.transport._initialize({json});
+
     super.initialize.apply(this, arguments);
   }
 

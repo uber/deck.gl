@@ -10,11 +10,16 @@ import {jsonConverter, createDeck} from './create-deck';
 
 export function initPlayground() {
   Transport.setCallbacks({
-    onInitialize({transport}) {
+    onInitialize({transport, json}) {
       // Extract "deck.gl playground" props
-      const {width, height, customLibraries, mapboxApiKey, jsonInput, tooltip} = getPlaygroundProps(
-        transport
-      );
+      const {
+        width,
+        height,
+        customLibraries,
+        mapboxApiKey,
+        tooltip,
+        ...deckProps
+      } = getPlaygroundProps(json, transport);
 
       // Load mapbox CSS
       loadMapboxCSS();
@@ -24,23 +29,28 @@ export function initPlayground() {
       const deckContainer = createContainer(width, height);
       transportRootElement.appendChild(deckContainer);
 
-      const jsonProps = JSON.parse(jsonInput);
+      transport.userData.deckContainer = deckContainer;
 
+      // Can we be sure props are available here?
       const deck = createDeck({
         mapboxApiKey,
         container: deckContainer,
-        jsonInput: jsonProps,
         tooltip,
         handleEvent: (name, payload) => sendEventViaTransport(transport, name, payload),
-        customLibraries
-      });
+        customLibraries,
 
+        // Standard Deck Props
+        deckProps
+      });
       transport.userData.deck = deck;
     },
 
     onFinalize({transport}) {
-      const {deck} = transport.userData;
-      deck.finalize();
+      const {deck, deckContainer} = transport.userData;
+      if (deck) {
+        deck.finalize();
+      }
+      deckContainer.parentNode.removeChild(deckContainer);
     },
 
     onMessage({transport, type, json, binary}) {
@@ -102,21 +112,27 @@ function sendEventViaTransport(transport, eventName, data) {
 }
 
 // Get non-deck "playground" props
-// TODO: hack we are accessing model directly
-// TODO - these inputs can be passed as top-level JSON props, no need to add custom model fields
+function getPlaygroundProps(json, transport) {
+  // TODO - these inputs can be passed as top-level JSON props, no need to add custom model fields
+  if (json) {
+    return json;
+  }
 
-function getPlaygroundProps(transport) {
+  // TODO: hack we are accessing model directly
   const {jupyterModel} = transport;
   if (!jupyterModel) {
     throw new Error('deck.gl playground currently only works with the Jupyter Widget Transport');
   }
+
+  const jsonInput = jupyterModel.get('json_input') || {};
+  const deckProps = JSON.parse(jsonInput);
 
   return {
     width: jupyterModel.get('width'),
     height: jupyterModel.get('height'),
     customLibraries: jupyterModel.get('custom_libraries'),
     mapboxApiKey: jupyterModel.get('mapbox_key'),
-    jsonInput: jupyterModel.get('json_input'),
-    tooltip: jupyterModel.get('tooltip')
+    tooltip: jupyterModel.get('tooltip'),
+    ...deckProps
   };
 }

@@ -174,15 +174,15 @@ function createDeck({
   mapboxApiKey,
   googleMapsKey,
   container,
-  jsonInput,
   tooltip,
   handleEvent,
-  customLibraries
+  customLibraries,
+  deckProps
 }) {
   let deckgl;
   try {
-    const oldLayers = jsonInput.layers || [];
-    const props = jsonConverter.convert(jsonInput);
+    const oldLayers = deckProps.layers || [];
+    const props = jsonConverter.convert(deckProps);
 
     addSupportComponents(container, props);
 
@@ -195,18 +195,18 @@ function createDeck({
 
     deckgl = createStandaloneFromProvider({
       mapProvider,
-      props,
       mapboxApiKey,
       googleMapsKey,
       handleEvent,
       getTooltip,
-      container
+      container,
+      props
     });
 
     const onComplete = () => {
       if (layerToLoad.length) {
         // convert input layer again to presist layer order
-        const newProps = jsonConverter.convert({layers: jsonInput.layers});
+        const newProps = jsonConverter.convert({layers: deckProps.layers});
         const newLayers = (newProps.layers || []).filter(l => l);
 
         if (newLayers.length > convertedLayers.length) {
