@@ -1,4 +1,5 @@
 const properties = {
+  views: {},
   layers: {},
   layerFilter: {},
   parameters: {},

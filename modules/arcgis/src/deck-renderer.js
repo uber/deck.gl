@@ -36,18 +36,35 @@ export default function createDeckRenderer(DeckProps, externalRenderers) {
     render(context) {
       const [width, height] = this.view.size;
 
-      render.call(this, {
-        gl: context.gl,
-        width,
-        height,
-        viewState: {
+      let viewState;
+      if (this.view.viewingMode === 'global') {
+        viewState = {
+          latitude: this.view.camera.position.latitude,
+          longitude: this.view.camera.position.longitude,
+          altitude: this.view.camera.position.z / 7000000, // TODO
+          zoom: Math.log2(45000000 / this.view.camera.position.z), // TODO
+          bearing: this.view.camera.heading,
+          pitch: this.view.camera.tilt
+        };
+        console.log(viewState); // eslint-disable-line
+      } else if (this.view.viewingMode === 'local') {
+        viewState = {
           latitude: this.view.center.latitude,
           longitude: this.view.center.longitude,
           altitude: arcgisFOVToDeckAltitude(this.view.camera.fov, width / height),
           zoom: this.view.zoom,
           bearing: this.view.camera.heading,
           pitch: this.view.camera.tilt
-        }
+        };
+      } else {
+        throw new Error('Invalid state');
+      }
+
+      render.call(this, {
+        gl: context.gl,
+        width,
+        height,
+        viewState
       });
     }
   }
