@@ -169,14 +169,11 @@ export function getViewPropsFromCoordinateTransformer(map, coordinateTransformer
   } = coordinateTransformer.getCameraParams();
 
   // Match Google projection matrix
-  // The view matrix altitude is 1m, however the FOV is
-  // not calculated from this, but rather is set to 25 degrees.
-  const altitude = 1;
   const fovy = 25;
   const aspect = width / height;
 
   // Match depth range (crucial for correct z-sorting)
-  const near = 0.3333333432674408;
+  const near = 0.75;
   const far = 300000000000000;
 
   const projectionMatrix = new Matrix4().perspective({
@@ -197,14 +194,13 @@ export function getViewPropsFromCoordinateTransformer(map, coordinateTransformer
       })
     ],
     viewState: {
-      altitude,
+      altitude: focalDistance,
       bearing,
       latitude,
       longitude,
       pitch,
       repeat: true,
-      // Adjust zoom to obtain correct scaling matrix.
-      zoom: zoom - 1 - Math.log2(focalDistance)
+      zoom: zoom - 1
     }
   };
 }
