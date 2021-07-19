@@ -27,6 +27,7 @@ import {
   getViewMatrix,
   addMetersToLngLat,
   getProjectionParameters,
+  altitudeToFovy,
   fitBounds,
   getBounds
 } from '@math.gl/web-mercator';
@@ -34,8 +35,6 @@ import {
 // TODO - import from math.gl
 import * as vec2 from 'gl-matrix/vec2';
 import {Matrix4} from 'math.gl';
-
-const RADIANS_TO_DEGREES = 180 / Math.PI;
 
 export default class WebMercatorViewport extends Viewport {
   /**
@@ -72,11 +71,12 @@ export default class WebMercatorViewport extends Viewport {
     // TODO - just throw an Error instead?
     altitude = Math.max(0.75, altitude);
 
-    const {fov, aspect, focalDistance, near, far} = getProjectionParameters({
+    const fovy = altitudeToFovy(projectionMatrix ? projectionMatrix[5] / 2 : altitude);
+    const {aspect, fov: fovyRadians, focalDistance, near, far} = getProjectionParameters({
       width,
       height,
       pitch,
-      altitude: projectionMatrix ? projectionMatrix[5] / 2 : altitude,
+      fovy,
       nearZMultiplier,
       farZMultiplier
     });
@@ -112,7 +112,7 @@ export default class WebMercatorViewport extends Viewport {
 
       // projection matrix parameters
       orthographic,
-      fovyRadians: fov,
+      fovyRadians,
       aspect,
       focalDistance,
       near,
@@ -126,7 +126,7 @@ export default class WebMercatorViewport extends Viewport {
     this.pitch = pitch;
     this.bearing = bearing;
     this.altitude = altitude;
-    this.fovy = fov * RADIANS_TO_DEGREES;
+    this.fovy = fovy;
 
     this.orthographic = orthographic;
 
