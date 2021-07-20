@@ -27,6 +27,7 @@ import {
   getViewMatrix,
   addMetersToLngLat,
   getProjectionParameters,
+  altitudeToFovy,
   fitBounds,
   getBounds
 } from '@math.gl/web-mercator';
@@ -53,6 +54,7 @@ export default class WebMercatorViewport extends Viewport {
       nearZMultiplier = 0.1,
       farZMultiplier = 1.01,
       orthographic = false,
+      projectionMatrix,
 
       repeat = false,
       worldOffset = 0
@@ -69,14 +71,30 @@ export default class WebMercatorViewport extends Viewport {
     // TODO - just throw an Error instead?
     altitude = Math.max(0.75, altitude);
 
-    const {fov, aspect, focalDistance, near, far} = getProjectionParameters({
-      width,
-      height,
-      pitch,
-      altitude,
-      nearZMultiplier,
-      farZMultiplier
-    });
+    let fovy;
+    let projectionParameters;
+    if (projectionMatrix) {
+      fovy = altitudeToFovy(projectionMatrix[5] / 2);
+      projectionParameters = {focalDistance: altitude, projectionMatrix};
+    } else {
+      fovy = altitudeToFovy(altitude);
+      const {aspect, fov: fovyRadians, near, far} = getProjectionParameters({
+        width,
+        height,
+        pitch,
+        fovy,
+        nearZMultiplier,
+        farZMultiplier
+      });
+      projectionParameters = {
+        orthographic,
+        fovyRadians,
+        aspect,
+        focalDistance: altitude,
+        near,
+        far
+      };
+    }
 
     // The uncentered matrix allows us two move the center addition to the
     // shader (cheap) which gives a coordinate system that has its center in
@@ -108,12 +126,7 @@ export default class WebMercatorViewport extends Viewport {
       zoom,
 
       // projection matrix parameters
-      orthographic,
-      fovyRadians: fov,
-      aspect,
-      focalDistance,
-      near,
-      far
+      ...projectionParameters
     });
 
     // Save parameters
@@ -123,6 +136,7 @@ export default class WebMercatorViewport extends Viewport {
     this.pitch = pitch;
     this.bearing = bearing;
     this.altitude = altitude;
+    this.fovy = fovy;
 
     this.orthographic = orthographic;
 
