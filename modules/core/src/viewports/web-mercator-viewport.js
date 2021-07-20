@@ -72,7 +72,7 @@ export default class WebMercatorViewport extends Viewport {
     altitude = Math.max(0.75, altitude);
 
     const fovy = altitudeToFovy(projectionMatrix ? projectionMatrix[5] / 2 : altitude);
-    const {aspect, fov: fovyRadians, focalDistance, near, far} = getProjectionParameters({
+    const {aspect, fov: fovyRadians, near, far} = getProjectionParameters({
       width,
       height,
       pitch,
@@ -80,6 +80,7 @@ export default class WebMercatorViewport extends Viewport {
       nearZMultiplier,
       farZMultiplier
     });
+    const focalDistance = altitude;
 
     // The uncentered matrix allows us two move the center addition to the
     // shader (cheap) which gives a coordinate system that has its center in
