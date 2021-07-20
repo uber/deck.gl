@@ -174,8 +174,8 @@ export function getViewPropsFromCoordinateTransformer(map, coordinateTransformer
 
   // Match depth range (crucial for correct z-sorting)
   const near = 0.75;
-  // const far = 300000000000000;
-  const far = Infinity;
+  const far = 300000000000000;
+  // const far = Infinity;
 
   const projectionMatrix = new Matrix4().perspective({
     fovy: (fovy * Math.PI) / 180,
