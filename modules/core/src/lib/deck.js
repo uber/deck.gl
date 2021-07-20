@@ -508,7 +508,7 @@ export default class Deck {
           ...opts,
           canvas: this.canvas,
           debug,
-          onContextLost: _ => onError?.(new Error(`WebGL context is lost`))
+          onContextLost: () => this._onContextLost()
         }),
       onInitialize: context => this._setGLContext(context.gl),
       onRender: this._onRenderFrame.bind(this),
@@ -534,6 +534,13 @@ export default class Deck {
       views[0].props.controller = this.props.controller;
     }
     return views;
+  }
+
+  _onContextLost() {
+    const {onError} = this.props;
+    if (this.animationLoop && onError) {
+      onError(new Error(`WebGL context is lost`));
+    }
   }
 
   // The `pointermove` event may fire multiple times in between two animation frames,
